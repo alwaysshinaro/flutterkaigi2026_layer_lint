@@ -33,5 +33,5 @@ jobs:
           channel: stable
           flutter-version: 3.41.6
       - run: flutter pub get
-      # layer_lint の違反（info）があれば exit 1 で失敗させる
-      - run: flutter analyze --fatal-infos
+      # layer_lint の違反（error）があれば失敗する
+      - run: flutter analyze

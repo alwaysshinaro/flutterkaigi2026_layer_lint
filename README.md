@@ -38,7 +38,7 @@ flutter analyze
 期待される出力:
 
 ```
-   info • View から Model への直接依存は禁止されています。 • lib/view/todo_page.dart:3:8 • avoid_view_to_model_import
+  error • View から Model への直接依存は禁止されています。 • lib/view/todo_page.dart:3:8 • avoid_view_to_model_import
 
 1 issue found.
 ```
@@ -77,19 +77,20 @@ flutter analyze
 
 1. 違反版の `todo_page.dart` のまま GitHub に push する
 2. Actions タブで `analyze` ワークフローを開く
-3. `layer_lint (test)` job は緑、`example (flutter analyze)` job が `flutter analyze --fatal-infos` のステップで赤くなり、ログに上と同じ違反が出る
+3. `layer_lint (test)` job は緑、`example (flutter analyze)` job が `flutter analyze` のステップで赤くなり、ログに上と同じ違反が出る
 
-lint の報告は severity が info です。`flutter analyze` は既定で info でも失敗しますが、意図を明示するためにワークフローでは `--fatal-infos` を付けています（`dart analyze` は info だけでは失敗しないので、使う場合は `--fatal-infos` が必須です）。
+lint rule の報告は、既定では severity が info です。このリポジトリでは `example/analysis_options.yaml` の `diagnostics:` に `true` ではなく `error` と書き、error に格上げしています。そのためエディタでは赤い波線になり、`dart analyze` も `flutter analyze` もオプションなしで失敗します。`diagnostics:` に書ける値は `true` / `false` / `info` / `warning` / `error` です（dart.dev のドキュメントには `true` / `false` しか載っていませんが、analyzer のソースで確認し、実際に動くことも確かめました）。
 
 ## ルールの仕組み
 
 - 層の判定は `lib/src/layer.dart` の定数テーブル（`layerDirectories` と `forbiddenDependencies`）で行います。
 - import しているライブラリと import されているライブラリの**解決済みの URI**（`package:example/view/...`）を比べます。そのため、相対 import（`../model/todo.dart`）と package import（`package:example/model/todo.dart`）のどちらでも検知できます。
-- lint rule（`registerLintRule`）として登録しているので、既定では無効です。`example/analysis_options.yaml` の `diagnostics:` で明示的に有効化しています。
+- lint rule（`registerLintRule`）として登録しているので、既定では無効です。`example/analysis_options.yaml` の `diagnostics:` で、error として明示的に有効化しています。
 
 ## ハマりどころ
 
 - **プラグインを変更したら Analysis Server の再起動が必要**です。VS Code ではコマンドパレットから `Dart: Restart Analysis Server` を実行します。`analysis_options.yaml` の `plugins:` を書き換えたときも同じです。
 - **`print` は効きません**。プラグインは Analysis Server とは別の isolate で動くので、標準出力はどこにも表示されません。デバッグしたいときはログファイルに書き出してください。
 - **プラグインがクラッシュしても、エディタには何も表示されません**。診断が出ないときは Analyzer Diagnostics ページ（VS Code では `Dart: Open Analyzer Diagnostics`）を開き、Plugins のページでエラーを確認してください。
+- **`Bad state: The analysis server crashed unexpectedly` で `dart analyze` が落ちる**ときは、プラグインのビルドキャッシュが壊れていることがあります。キャッシュは `~/.dartServer/.plugin_manager/<hash>/` にあり、どの `<hash>` がどのプラグインかは中の `pubspec.yaml` の `path:` で分かります。該当するディレクトリを消すと、次の解析で作り直されます。`dart analyze --cache=<空のディレクトリ>` で直るなら、キャッシュが原因です。
 - 公式ドキュメントの pubspec の例（`analyzer: ^8.0.0`）のままだと、テスト用パッケージ `analyzer_testing` が古い版（0.1.x）に解決されます。古い版には `testing_rules.md` にある `rule = MyRule();` の書き方がありません。このリポジトリでは最新版（`analysis_server_plugin: ^0.3.23` / `analyzer: ^14.4.0` / `analyzer_testing: ^0.4.2`）を使っています。
